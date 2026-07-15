@@ -1,0 +1,11 @@
+looloo-finance-ml
+
+Candidate-authored source code is licensed under Apache-2.0; see LICENSE.
+
+No Alpaca market data, Webull market data, access tokens, broker credentials, or vendor-derived raw/normalized artifacts are licensed or redistributed by this repository. Any public evidence package is separately marked all rights reserved and grants no rights in vendor data or derived vendor-data artifacts.
+
+SEC EDGAR CompanyFacts data is sourced from the U.S. Securities and Exchange Commission. Its presence does not imply SEC endorsement.
+
+This project uses pandas, NumPy, scikit-learn, joblib, and exchange_calendars under their respective licenses. HKUDS/Vibe-Trading and Packt ML4T are research references only; their code and data are not incorporated.
+
+The `evidence/` directory is all rights reserved. It is published only when the current source terms permit the specific aggregate disclosure; it is not a grant to redistribute or derive vendor-data artifacts.

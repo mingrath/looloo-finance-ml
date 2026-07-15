@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GIT_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: uv run ruff check .
+      - run: uv run pytest -q
+      - run: uv run looloo-finance-ml --artifacts artifacts all
+      - run: uv run looloo-finance-ml --artifacts artifacts evidence-selfcheck
+      - run: uv run python -m looloo_finance_ml.evidence evidence --git-baseline HEAD^

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.25,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "looloo-finance-ml"
+version = "0.1.0"
+description = "Reproducible cross-sectional equity ranking research and local paper-trading replay"
+license = "Apache-2.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "exchange-calendars==4.13.2",
+  "joblib>=1.4,<2",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "scikit-learn>=1.5,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+    "ruff>=0.12,<1",
+  "pytest-cov>=5,<7",
+]
+
+[project.scripts]
+looloo-finance-ml = "looloo_finance_ml.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/looloo_finance_ml"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.uv]
+package = true
