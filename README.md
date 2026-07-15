@@ -8,7 +8,7 @@ The approved decision contract is [selected-project-contract.md](docs/assets/sel
 
 ## See it without running
 
-Read a full sample run (synthetic fixture) without installing anything: [docs/sample-evidence/evidence_report.md](docs/sample-evidence/evidence_report.md). To reproduce end to end (~5 minutes), run the self-contained check below and open `artifacts/<run>/runs/<run-id>/evidence_report.md`.
+Read a full sample run (synthetic fixture) without installing anything: [docs/sample-evidence/evidence_report.md](docs/sample-evidence/evidence_report.md). To verify the code quickly, `uv run pytest -q` finishes in seconds (53 tests). To reproduce end to end, run the self-contained check below and open the generated `artifacts/<run>/runs/<run-id>/evidence_report.md`; the synthetic pipeline takes roughly 15 minutes on a standard CI runner.
 
 ## Run the self-contained check
 
