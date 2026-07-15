@@ -3,6 +3,8 @@
 Run `20260714T115337558131Z-d5871533` · contract `finance-ml-v1` · generated `2026-07-14T11:56:20.596765+00:00`
 
 > **SYNTHETIC FIXTURE RUN — pipeline validation only; not hiring or investment evidence.**
+>
+> **Report-only preview.** This file is a copy of a generated `evidence_report.md`, published so reviewers can read a full run without installing anything. The CSVs, JSON manifests, and JSONL event logs named in "Reviewer path" below are produced locally by an actual run — `artifacts/` is git-ignored and intentionally not committed (the public-evidence allowlist also excludes symbol-level data and event logs). Reproduce a run to inspect them.
 
 ## Reviewer path
 
