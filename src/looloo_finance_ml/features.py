@@ -138,6 +138,23 @@ def _quarter_index(value: pd.Timestamp) -> pd.Period:
     return value.tz_convert("UTC").tz_localize(None).to_period("Q")
 
 
+def _period_span_days(frame: pd.DataFrame) -> pd.Series:
+    """Whole-day span from period_start to period_end; NaN where either bound
+    is missing. Computed at day resolution on the both-present subset so absurd
+    real SEC period bounds (period_end out to 2199, period_start back to 1900)
+    cannot overflow int64 nanoseconds. NaN spans fail every downstream numeric
+    predicate, preserving the original period_start.notna() intent."""
+    end = pd.to_datetime(frame["period_end"], utc=True)
+    start = pd.to_datetime(frame["period_start"], utc=True, errors="coerce")
+    both = start.notna() & end.notna()
+    out = pd.Series(np.nan, index=frame.index, dtype="float64")
+    if both.any():
+        end_days = end[both].to_numpy("datetime64[ns]").astype("datetime64[D]")
+        start_days = start[both].to_numpy("datetime64[ns]").astype("datetime64[D]")
+        out.loc[both] = (end_days - start_days).astype("timedelta64[D]").astype("float64")
+    return out
+
+
 def _standalone_flow(facts: pd.DataFrame, tag: str, unit: str = "USD") -> pd.DataFrame:
     """Return one compatible-unit value per quarter, deriving same-FY YTD rows."""
     source = facts[facts["tag"].eq(tag) & facts["unit"].eq(unit)].copy()
@@ -149,8 +166,7 @@ def _standalone_flow(facts: pd.DataFrame, tag: str, unit: str = "USD") -> pd.Dat
     candidates: list[dict[str, object]] = []
     for period_end, contexts in source.groupby("period_end", sort=True):
         direct = contexts[
-            contexts["period_start"].notna()
-            & ((contexts["period_end"] - contexts["period_start"]).dt.days.between(45, 130))
+            _period_span_days(contexts).between(45, 130)
         ]
         if direct.empty:
             frame = contexts["frame"].fillna("").astype(str)
@@ -163,8 +179,7 @@ def _standalone_flow(facts: pd.DataFrame, tag: str, unit: str = "USD") -> pd.Dat
             candidates.append({**direct.iloc[-1].to_dict(), "_kind": 0})
             continue
         cumulative = contexts[
-            contexts["period_start"].notna()
-            & ((contexts["period_end"] - contexts["period_start"]).dt.days > 130)
+            (_period_span_days(contexts) > 130)
             & contexts["fiscal_year"].notna()
         ].sort_values("visibility_at", ascending=False)
         for _, current in cumulative.iterrows():
@@ -383,8 +398,7 @@ def build_sec_features(
             shares = visible[
                 visible["tag"].eq("WeightedAverageNumberOfDilutedSharesOutstanding")
                 & visible["unit"].eq("shares")
-                & visible["period_start"].notna()
-                & ((visible["period_end"] - visible["period_start"]).dt.days.between(45, 130))
+                & _period_span_days(visible).between(45, 130)
             ].copy()
             comparable_shares = _consecutive_tail(shares, 5, "shares")
             if not comparable_shares.empty:

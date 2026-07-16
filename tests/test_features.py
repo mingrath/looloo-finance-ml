@@ -5,6 +5,7 @@ import pytest
 
 from looloo_finance_ml.features import (
     _standalone_flow,
+    _period_span_days,
     _visible_facts,
     build_sec_features,
     build_price_features,
@@ -103,3 +104,67 @@ def test_price_features_normalize_symbols_before_time_sorting() -> None:
     mixed_case = bars.copy()
     mixed_case.loc[mixed_case.index[::2], "symbol"] = "aapl"
     pd.testing.assert_frame_equal(build_price_features(bars), build_price_features(mixed_case))
+
+
+def test_period_span_days_is_overflow_safe_and_masks_missing_bounds() -> None:
+    frame = pd.DataFrame(
+        {
+            "period_start": pd.to_datetime(
+                ["2021-01-01", "1900-01-01", None], utc=True
+            ),
+            "period_end": pd.to_datetime(
+                ["2021-03-31", "2199-12-31", "2021-03-31"], utc=True
+            ),
+        }
+    )
+    span = _period_span_days(frame)
+    assert span.iloc[0] == pytest.approx(89.0)  # normal quarter
+    assert span.iloc[1] > 100_000  # absurd span computed, not an int64-ns overflow
+    assert pd.isna(span.iloc[2])  # missing period_start -> NaN, never subtracted
+
+
+def test_sec_features_tolerate_instantaneous_and_absurd_period_spans() -> None:
+    # Real SEC companyfacts interleave duration facts with instantaneous ones
+    # (no period_start) and the occasional absurd period bound. The whole-frame
+    # period_end - period_start once overflowed int64 nanoseconds on real data;
+    # these shapes must be ignored, not crash, and not perturb real features.
+    facts = synthetic_sec_facts(symbols=("AAPL",))
+    decision = [pd.Timestamp("2021-06-30", tz="UTC")]
+    baseline = build_sec_features(facts, decision, symbols=("AAPL",)).iloc[0]
+
+    template = facts.iloc[0].to_dict()
+    poison = pd.DataFrame(
+        [
+            {
+                **template,
+                "tag": "AssetsHeldInTrustNoncurrent",
+                "unit": "USD",
+                "value": 1.0,
+                "period_start": pd.NaT,  # instantaneous balance-sheet fact
+                "period_end": pd.Timestamp("2020-12-31", tz="UTC"),
+                "filed_at": pd.Timestamp("2020-02-01", tz="UTC"),
+                "accepted_at": pd.Timestamp("2020-02-01", tz="UTC"),
+            },
+            {
+                **template,
+                "tag": "AssetsHeldInTrustNoncurrent",
+                "unit": "USD",
+                "value": 1.0,
+                "period_start": pd.Timestamp("1900-01-01", tz="UTC"),
+                "period_end": pd.Timestamp("2199-12-31", tz="UTC"),  # ~299y span
+                "filed_at": pd.Timestamp("2020-02-01", tz="UTC"),
+                "accepted_at": pd.Timestamp("2020-02-01", tz="UTC"),
+            },
+        ]
+    )
+    contaminated = pd.concat([facts, poison], ignore_index=True)
+    result = build_sec_features(contaminated, decision, symbols=("AAPL",)).iloc[0]
+
+    for col in (
+        "revenue_growth_ttm",
+        "operating_margin_ttm",
+        "debt_to_assets",
+        "cash_to_assets",
+        "diluted_share_change",
+    ):
+        assert result[col] == pytest.approx(baseline[col], nan_ok=True)
