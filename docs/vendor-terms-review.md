@@ -62,6 +62,20 @@ The outcome is reversible **only** by obtaining an affirmative permission. Two l
 
 Absent either, the public posture stays code + synthetic only. This does not block the first real `--live` run ([issue #5](https://github.com/mingrath/looloo-finance-ml/issues/5)) — that run may proceed for transient local validation; only retention and publication are governed by this review.
 
+## Publish-path decision (#9) — RESOLVED (a): synthetic-only public is final
+
+**Decision date:** 2026-07-16. **Decided by:** @mingrath (human risk-acceptance, HITL). Resolves [issue #9](https://github.com/mingrath/looloo-finance-ml/issues/9) — the separate "flip the outcome" decision this document reserved in its intro.
+
+**Outcome: (a) — accept the code + synthetic-verification public posture as final.** Do **not** pursue Alpaca written consent (b1) or direct-IEX re-sourcing (b2) at this time.
+
+- **Public artifact (final):** candidate-authored code + the **synthetic**-fixture evidence package + a **completed** `review_attestation.json` (reviewer records CI URL/result, terms URL/version/access date, publication decision, and public contact; `status` → complete — no cryptographic signature mechanism exists or is implied).
+- **Withheld (local-only, git-ignored):** the real `--live` run's aggregate numbers and all real-derived artifacts, governed by the Retention & purge policy above.
+- **Trust mechanism:** a **distinct reviewer privately reproduces** a real run on their **own** permitted Alpaca access and completes the public attestation — the project never hands over licensed-derived artifacts.
+
+**Escalation deferred, not abandoned.** The two routes in "Escalation path" above remain the sanctioned way to publish real aggregates later, and the outcome stays reversible — pursue one **only if a reviewer explicitly demands published real numbers**. Neither route's eligibility, effort, or fees have been assessed, so either would require scoping before commitment.
+
+**Effect on the evidence package ([issue #6](https://github.com/mingrath/looloo-finance-ml/issues/6)):** its public output is now **finalized** as the synthetic package + completed attestation with real aggregates withheld — no longer "pending #9". (Still blocked by the first real `--live` run, [issue #5](https://github.com/mingrath/looloo-finance-ml/issues/5).)
+
 ## Re-verification
 
 Alpaca may amend its agreement at any time (§30 header: terms revised on the website; continued use accepts them). Re-verify the live §30 text and capture a fresh terms snapshot **at each accepted live run**, and re-open this review if the market-data clause materially changes.
