@@ -3,7 +3,7 @@
 **Status:** decided.
 **Decision date (access date for all terms below):** 2026-07-16.
 **Scope:** governs (a) whether the aggregate evidence package (README "public allowlist", line 52) may be published, and (b) retention/purge of the accepted real-derived archive. Resolves [issue #1](https://github.com/mingrath/looloo-finance-ml/issues/1).
-**Method:** AFK review of primary sources (Alpaca disclosures library, IEX market-data policy, SEC EDGAR fair-access policy). This records the conservative outcome mandated by the project's own publish-gate (README line 42: publish aggregates *only if* current terms affirm that exact disclosure; otherwise code + synthetic only). It is not new human risk-acceptance: flipping to "publish real aggregates" requires the separate decision tracked in [issue #9](https://github.com/mingrath/looloo-finance-ml/issues/9).
+**Method:** AFK review of primary sources (Alpaca disclosures library, IEX market-data policy, SEC EDGAR fair-access policy). This records the conservative outcome mandated by the project's own publish-gate (README line 42: publish aggregates *only if* current terms affirm that exact disclosure; otherwise code + synthetic only). It is not new human risk-acceptance: flipping to "publish real aggregates" requires the separate decision tracked in [issue #9](https://github.com/mingrath/looloo-finance-ml/issues/9) — now decided; see the "Publish-path decision (issue #9)" section below.
 
 ## Outcome (plain statement)
 
@@ -61,6 +61,14 @@ The outcome is reversible **only** by obtaining an affirmative permission. Two l
 2. **Re-source daily bars directly from IEX** as a Data Subscriber and publish under IEX's Derived Data policy with required attribution.
 
 Absent either, the public posture stays code + synthetic only. This does not block the first real `--live` run ([issue #5](https://github.com/mingrath/looloo-finance-ml/issues/5)) — that run may proceed for transient local validation; only retention and publication are governed by this review.
+
+## Publish-path decision (issue #9)
+
+**Decided 2026-07-16 — option (a): accept the code + synthetic-only public posture as final.** Neither escalation route above will be pursued as part of the current effort: not Alpaca §30 written consent / Broker API partnership, and not direct-IEX re-sourcing.
+
+Rationale: the project's credibility goal — that it runs on real Alpaca + SEC data and is independently attested — is already met by the local real `--live` run ([Execute first real --live run](https://github.com/mingrath/looloo-finance-ml/issues/5)) plus a reviewer reproducing and attesting it with their **own** permitted Alpaca access. Publishing real-derived aggregates publicly adds only marginal signal for a hiring-portfolio project at real cost: the Alpaca-consent route is low-probability and outside our control, and the direct-IEX route is a substantial re-sourcing engineering effort plus a subscriber agreement. The decision is low-regret and reversible — the escalation path above stays valid, and publishing real aggregates can be re-opened later as a fresh effort without redoing this review.
+
+Consequence for [Produce publishable evidence package + independent reviewer attestation](https://github.com/mingrath/looloo-finance-ml/issues/6): its public output is the synthetic-fixture evidence package plus the reviewer attestation; the real-run evidence-only export stays local and is never merged to the public repository. Real aggregates remain withheld.
 
 ## Re-verification
 
