@@ -97,7 +97,7 @@ class AlpacaBarsClient:
             "start": start,
             "end": end,
             "timeframe": "1Day",
-            "feed": "iex",
+            "feed": "sip",
             "adjustment": adjustment,
             "asof": asof,
             "currency": "USD",

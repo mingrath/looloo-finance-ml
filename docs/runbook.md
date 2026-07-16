@@ -32,9 +32,11 @@ The data contract — feed, `adjustment` streams (`split` for features, `all` fo
 labels/fills), and `asof` — is frozen in `src/looloo_finance_ml/sources.py` and is
 the single source of truth. **The operator never passes it on the command line.**
 Changing it is a formal contract revision (build-brief Phase 0), not a runbook
-step; the demonstrated feed is currently being revised `feed=iex`→`feed=sip`
-([#12](https://github.com/mingrath/looloo-finance-ml/issues/12) /
-[#14](https://github.com/mingrath/looloo-finance-ml/issues/14)). This runbook is
+step; the frozen contract now pins `feed=sip` — revised from `feed=iex` in
+[#14](https://github.com/mingrath/looloo-finance-ml/issues/14) per the
+[#12](https://github.com/mingrath/looloo-finance-ml/issues/12) coverage decision,
+with the demonstrated run regenerated on the SIP re-run
+([#15](https://github.com/mingrath/looloo-finance-ml/issues/15)). This runbook is
 contract-agnostic: the procedure below is identical regardless of which feed the
 frozen contract pins.
 
