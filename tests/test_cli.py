@@ -2,6 +2,7 @@ from __future__ import annotations
 
 
 from argparse import Namespace
+from pathlib import Path
 import pandas as pd
 import json
 import pytest
@@ -13,6 +14,7 @@ from looloo_finance_ml.cli import (
     _code_commit,
     _drop_incomplete_dates,
     _top_tercile_excess,
+    _live_data_build,
     _attempt_summary,
     _parser,
     _write_hashed_json,
@@ -21,6 +23,8 @@ from looloo_finance_ml.cli import (
 from looloo_finance_ml.evidence import PublicEvidenceError, validate_public_evidence
 from looloo_finance_ml.evidence import validate_git_history
 from looloo_finance_ml.evidence import HASHED_PUBLIC_FILES, PUBLIC_CSV_HEADERS, PUBLIC_FILES
+from looloo_finance_ml.evidence import ATTEMPT_ACCEPTED_REASON, ATTEMPT_REJECTED_REASONS
+from looloo_finance_ml.http import HttpError
 from looloo_finance_ml.hashing import sha256_file
 from looloo_finance_ml.fixtures import FROZEN_SYMBOLS
 from looloo_finance_ml.paper import PaperConfig, ReplayResult
@@ -286,3 +290,55 @@ def test_top_tercile_excess_uses_aligned_weekly_net_returns() -> None:
     assert metrics == pytest.approx(
         {"top_tercile_excess_return_mean": 0.025, "top_tercile_excess_return_median": 0.025}
     )
+
+
+def test_live_data_build_stages_promotes_and_journals_accept_then_reject(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("looloo_finance_ml.cli._checked_live_commit", lambda: "deadbeef")
+
+    staged_roots: list[Path] = []
+
+    def fake_data_build(args: Namespace, root: Path) -> dict[str, object]:
+        staged_roots.append(root)
+        if len(staged_roots) == 1:
+            (root / "feature_bars.csv").write_text("snapshot", encoding="utf-8")
+            return {"data_manifest_hash": "hash-accepted"}
+        raise HttpError("simulated transport failure")
+
+    monkeypatch.setattr("looloo_finance_ml.cli.data_build", fake_data_build)
+    args = Namespace(live=True, start="2021-01-04", end="2021-01-15")
+
+    # Accepted path: contract-valid snapshot staged outside the target, atomically promoted.
+    ok_root = tmp_path / "evidence_ok"
+    result = _live_data_build(args, ok_root)
+
+    assert result == {"data_manifest_hash": "hash-accepted"}
+    accepted_staging = staged_roots[0]
+    assert ok_root not in accepted_staging.parents
+    assert accepted_staging.parent == tmp_path / ".staging"
+    assert (ok_root / "feature_bars.csv").read_text(encoding="utf-8") == "snapshot"
+    assert not accepted_staging.exists()
+
+    ok_journal = tmp_path / ".evidence_ok.attempts.jsonl"
+    accepted = [json.loads(line) for line in ok_journal.read_text(encoding="utf-8").splitlines()]
+    assert len(accepted) == 1
+    assert accepted[0]["outcome"] == "accepted"
+    assert accepted[0]["reason"] == ATTEMPT_ACCEPTED_REASON
+    assert accepted[0]["data_manifest_hash"] == "hash-accepted"
+
+    # Rejected path (fresh root): transport failure -> journalled reject, staging cleaned, no promote.
+    fail_root = tmp_path / "evidence_fail"
+    with pytest.raises(HttpError):
+        _live_data_build(args, fail_root)
+
+    rejected_staging = staged_roots[1]
+    assert not fail_root.exists()
+    assert not rejected_staging.exists()
+
+    fail_journal = tmp_path / ".evidence_fail.attempts.jsonl"
+    rejected = [json.loads(line) for line in fail_journal.read_text(encoding="utf-8").splitlines()]
+    assert len(rejected) == 1
+    assert rejected[0]["outcome"] == "rejected"
+    assert rejected[0]["reason"] == "transport_failure"
+    assert rejected[0]["reason"] in ATTEMPT_REJECTED_REASONS
