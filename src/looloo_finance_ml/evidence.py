@@ -167,9 +167,7 @@ def validate_public_evidence(root: str | Path, *, mode: str = "public", pending:
         raise PublicEvidenceError(f"unknown validation mode: {mode!r}")
     root = Path(root)
     if not root.exists():
-        if mode == "private":
-            raise PublicEvidenceError("private evidence root does not exist")
-        return
+        raise PublicEvidenceError(f"{mode} evidence root does not exist")
     if not root.is_dir():
         raise PublicEvidenceError("evidence root must be a directory")
     entries = {entry.name: entry for entry in root.iterdir()}
