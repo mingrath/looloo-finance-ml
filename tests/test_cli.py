@@ -398,8 +398,9 @@ def test_synthetic_package_round_trips_public_validation(tmp_path) -> None:
         validate_public_evidence(output, mode="private", pending=True)
 
 
-def test_private_mode_fails_closed_on_missing_root(tmp_path) -> None:
+def test_public_and_private_modes_fail_closed_on_missing_root(tmp_path) -> None:
     missing = tmp_path / "missing"
-    with pytest.raises(PublicEvidenceError, match="does not exist"):
+    with pytest.raises(PublicEvidenceError, match="private evidence root does not exist"):
         validate_public_evidence(missing, mode="private")
-    validate_public_evidence(missing, mode="public")
+    with pytest.raises(PublicEvidenceError, match="public evidence root does not exist"):
+        validate_public_evidence(missing, mode="public")

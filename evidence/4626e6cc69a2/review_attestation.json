@@ -1,0 +1,18 @@
+{
+  "allowlist_version": "public-evidence-v1",
+  "attestation": "Candidate self-attestation (no independent third-party reviewer available). I, mingrath (the candidate/author), verified the public CI run for code_commit 031abd3 passed, reviewed Alpaca Customer Agreement \u00a730 and confirm publishing candidate code plus the synthetic-fixture evidence package is permitted (real-derived aggregates withheld), and provide a public contact. This attests the synthetic fixture package only; it is a self-attestation, not independent review, and is not hiring or investment evidence.",
+  "ci_result": "passed",
+  "ci_run_url": "https://github.com/mingrath/looloo-finance-ml/actions/runs/29553850629",
+  "code_commit": "031abd32d4566428ef7a6732457885728ac2fbdd",
+  "evidence_schema_version": "public-evidence-v1",
+  "public_artifact_index_hash": "c6e78609bba9e27789e535e027fa3e79775e2de0d8b2b1dd52139c46f764abff",
+  "public_contact": "https://github.com/mingrath",
+  "reviewed_at": "2026-07-17T13:31:04Z",
+  "reviewer_handle": "mingrath",
+  "source_snapshot_hash": "4626e6cc69a268713d10b7381a45d0fb2cf5e5b8b228e16c69419581c60a8c3d",
+  "status": "approved",
+  "terms_accessed_at": "2026-07-16",
+  "terms_publication_decision": "permitted",
+  "terms_url": "https://files.alpaca.markets/disclosures/library/AcctAppMarginAndCustAgmt.pdf",
+  "terms_version": "repo-pinned snapshot v20200403 (current governing clause \u00a730)"
+}
