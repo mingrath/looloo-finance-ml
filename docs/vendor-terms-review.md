@@ -33,6 +33,12 @@ The allowlist (aggregate report, provenance/hash index, model/fold/robustness ag
 
 IEX defines Derived Data as information generated from IEX Market Data that cannot be reverse-engineered to recreate the original, and permits subscribers to create/use/**distribute Derived Data externally free of charge** with attribution ("Data provided for free by IEX. By accessing or using IEX Historical Data, you agree to the IEX Historical Data Terms of Use."). This favorable path requires consuming data **directly from IEX** as a Data Subscriber, not via a third party such as Alpaca. Recorded here because it is the cleanest lawful route to publishable real aggregates (see escalation).
 
+### Demonstrated feed revised to SIP (contract revision #14) — outcome unchanged
+
+The frozen data contract was revised `feed=iex` → `feed=sip` ([issue #14](https://github.com/mingrath/looloo-finance-ml/issues/14), implementing [#12](https://github.com/mingrath/looloo-finance-ml/issues/12)) so the demonstrated run sources full-market SIP consolidated bars (free on the Alpaca Basic plan for historical data older than 15 minutes). **This does not change the outcome above.** The controlling restriction is §30's feed-agnostic prohibition — "reproduce, distribute, sell or commercially exploit the market data in any manner" (quoted above) — which draws no line between IEX and SIP; SIP is likewise consumed *via* the Alpaca Market Data API, so §30 governs it exactly as it governed IEX, and §30 alone is sufficient for the unchanged outcome. The incorporated NASDAQ OMX / NYSE exchange subscriber agreements (§30 header; "Why the aggregate allowlist is not exempt", point 3) reinforce this — their market-data definitions *typically* sweep consolidated/derived output into the restriction — but that point is corroborating, not load-bearing. The publish posture (#1 + #9(a)) is therefore **unchanged**: code + synthetic-fixture evidence + completed reviewer attestation public; real SIP-derived aggregates stay local-only and non-redistributable under the same Retention & purge policy.
+
+Record one asymmetry for the escalation path: **route 2** (direct-IEX re-source under IEX's Derived Data policy) would now publish aggregates derived from a **different feed** — IEX single-exchange — than the one the project actually demonstrates (SIP consolidated). It stays documented and reversible as a lawful publish route, but it is no longer feed-parity with the accepted run, so any future pursuit must disclose that the published and demonstrated feeds differ. Route 1 (Alpaca §30 written consent) covers the demonstrated SIP feed directly.
+
 ## Retention & purge policy for the accepted real-derived archive
 
 The accepted `artifacts/<live-run>` tree (raw + normalized Alpaca bars, predictions, model files, event logs, bootstrap samples, per-date IC, symbol-level series) is licensed, non-redistributable data. Posture is **data minimization**:
@@ -58,7 +64,7 @@ The accepted `artifacts/<live-run>` tree (raw + normalized Alpaca bars, predicti
 The outcome is reversible **only** by obtaining an affirmative permission. Two lawful routes, both tracked as a decision in [issue #9](https://github.com/mingrath/looloo-finance-ml/issues/9):
 
 1. **Written consent from Alpaca** for the specific aggregate disclosure (§30 consent, or a Broker API / partnership arrangement), or
-2. **Re-source daily bars directly from IEX** as a Data Subscriber and publish under IEX's Derived Data policy with required attribution.
+2. **Re-source daily bars directly from IEX** as a Data Subscriber and publish under IEX's Derived Data policy with required attribution. *(Post-#14 this re-sources a **different** feed — IEX single-exchange — than the demonstrated SIP consolidated run; see "Demonstrated feed revised to SIP" above. Still documented and reversible.)*
 
 Absent either, the public posture stays code + synthetic only. This does not block the first real `--live` run ([issue #5](https://github.com/mingrath/looloo-finance-ml/issues/5)) — that run may proceed for transient local validation; only retention and publication are governed by this review.
 
