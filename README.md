@@ -39,15 +39,22 @@ Raw and normalized Alpaca data, predictions, model files, and event logs remain 
 
 ## Publish canonical evidence
 
-Only publish an aggregate package after the current Alpaca terms affirm that exact disclosure is permitted. Otherwise publish code and **synthetic verification** only; do not privately redistribute the real-derived package.
-
-From the exact clean commit that produced the accepted live run:
+Under the current Alpaca terms, the committed public artifact is the **synthetic-fixture** evidence package (candidate code + synthetic evidence + a completed reviewer attestation). Real-derived aggregates are never published or privately redistributed. Build the committed public package from a synthetic run:
 
 ```sh
-uv run looloo-finance-ml --artifacts artifacts/live-001 evidence-export --output evidence
+uv run looloo-finance-ml --artifacts <synthetic-run-root> evidence-export-public --output evidence
 ```
 
-This creates one hash-named, default-deny package and a pending `review_attestation.json`. A distinct reviewer must complete the attestation with the checked CI URL/result, terms URL/version/access date, publication decision, and public contact before the evidence-only PR is merged. The package is all rights reserved; `LICENSE` applies only to candidate-authored code.
+This writes one hash-named, default-deny package under `evidence/` (`source_mode: "synthetic"`) with a pending, procedural `review_attestation.json`. Public validation **requires** synthetic, so a real-derived package can never pass as the committed public artifact. A distinct reviewer completes the attestation (checked CI URL/result, terms URL/version/access date, publication decision, public contact) before the evidence PR is merged. The committed self-check is `python -m looloo_finance_ml.evidence evidence` (public/synthetic mode, approved attestation).
+
+The reviewer reproduces the **private** real package on their own Alpaca access — never committed. From the exact clean commit that produced the accepted live run:
+
+```sh
+uv run looloo-finance-ml --artifacts <accepted-live-run-root> evidence-export   # -> artifacts/private-evidence (git-ignored)
+uv run python -m looloo_finance_ml.evidence artifacts/private-evidence --mode private
+```
+
+`evidence-export` requires a live snapshot; the private finalized check validates in live mode against the completed attestation. The package is all rights reserved; `LICENSE` applies only to candidate-authored code.
 
 The public allowlist is the report, provenance and hash index, model/fold/robustness aggregates, weekly portfolio returns, model comparison, cost sensitivity, and skip counts. It excludes bars, SEC facts, symbol-level features/predictions/fills, model files, event logs, bootstrap samples, per-date IC, and top-tercile return series.
 

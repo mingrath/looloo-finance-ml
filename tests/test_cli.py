@@ -17,6 +17,10 @@ from looloo_finance_ml.cli import (
     _parser,
     _write_hashed_json,
     data_build,
+    _build_evidence_package,
+    _export_evidence,
+    _export_public_evidence,
+    _write_procedural_journal,
 )
 from looloo_finance_ml.evidence import PublicEvidenceError, validate_public_evidence
 from looloo_finance_ml.evidence import validate_git_history
@@ -64,7 +68,7 @@ def test_public_evidence_rejects_unknown_files(tmp_path) -> None:
         validate_public_evidence(evidence_root)
 
 
-def _valid_pending_evidence(tmp_path):
+def _valid_pending_evidence(tmp_path, *, source_mode="synthetic"):
     evidence_root = tmp_path / "evidence"
     package = evidence_root / ("a" * 12)
     package.mkdir(parents=True)
@@ -92,7 +96,7 @@ def _valid_pending_evidence(tmp_path):
         "lockfile_hash": "c" * 64,
         "run_id": "run-1",
         "runtime": {},
-        "source_mode": "live",
+        "source_mode": source_mode,
         "source_requests": [
             {
                 "source": "alpaca",
@@ -286,3 +290,116 @@ def test_top_tercile_excess_uses_aligned_weekly_net_returns() -> None:
     assert metrics == pytest.approx(
         {"top_tercile_excess_return_mean": 0.025, "top_tercile_excess_return_median": 0.025}
     )
+
+
+def _approved_attestation(package, provenance):
+    return {
+        "allowlist_version": "public-evidence-v1",
+        "attestation": "independently reproduced and verified",
+        "ci_result": "passed",
+        "ci_run_url": "https://ci.example.com/run/1",
+        "code_commit": provenance["code_commit"],
+        "evidence_schema_version": "public-evidence-v1",
+        "public_artifact_index_hash": sha256_file(package / "public_artifact_index.json"),
+        "public_contact": "reviewer@example.com",
+        "reviewed_at": "2026-02-01T00:00:00+00:00",
+        "reviewer_handle": "reviewer",
+        "source_snapshot_hash": provenance["data_manifest_hash"],
+        "status": "approved",
+        "terms_accessed_at": "2026-01-15",
+        "terms_publication_decision": "permitted",
+        "terms_url": "https://alpaca.markets/terms",
+        "terms_version": "2026-01",
+    }
+
+
+def test_public_mode_rejects_live_snapshot(tmp_path) -> None:
+    root = _valid_pending_evidence(tmp_path, source_mode="live")
+    with pytest.raises(PublicEvidenceError, match="synthetic source snapshot"):
+        validate_public_evidence(root, mode="public", pending=True)
+
+
+def test_private_mode_rejects_synthetic_snapshot(tmp_path) -> None:
+    root = _valid_pending_evidence(tmp_path, source_mode="synthetic")
+    with pytest.raises(PublicEvidenceError, match="live source snapshot"):
+        validate_public_evidence(root, mode="private", pending=True)
+
+
+def test_private_finalized_validation_rejects_pending_and_accepts_approved(tmp_path) -> None:
+    root = _valid_pending_evidence(tmp_path, source_mode="live")
+    package = next(entry for entry in root.iterdir() if entry.is_dir())
+    provenance = json.loads((package / "public_provenance.json").read_text(encoding="utf-8"))
+    with pytest.raises(PublicEvidenceError, match="must be approved"):
+        validate_public_evidence(root, mode="private", pending=False)
+    (package / "review_attestation.json").write_text(
+        json.dumps(_approved_attestation(package, provenance)), encoding="utf-8"
+    )
+    validate_public_evidence(root, mode="private", pending=False)
+
+
+def test_public_export_requires_synthetic_snapshot(tmp_path) -> None:
+    (tmp_path / "data_build_summary.json").write_text(
+        json.dumps({"source_mode": "live"}), encoding="utf-8"
+    )
+    args = Namespace(output=str(tmp_path / "out"), attempt_journal=None)
+    with pytest.raises(RuntimeError, match="synthetic source snapshot"):
+        _export_public_evidence(args, tmp_path)
+
+
+def test_private_export_requires_live_snapshot(tmp_path) -> None:
+    (tmp_path / "data_build_summary.json").write_text(
+        json.dumps({"source_mode": "synthetic"}), encoding="utf-8"
+    )
+    args = Namespace(output=str(tmp_path / "out"), attempt_journal=None)
+    with pytest.raises(RuntimeError, match="live source snapshot"):
+        _export_evidence(args, tmp_path)
+
+
+def _synthetic_run_dir(tmp_path):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "evidence_report.md").write_text(
+        "# Evidence report\n\nSynthetic fixture summary.\n## Artifact index\nprivate index\n",
+        encoding="utf-8",
+    )
+    for filename, header in PUBLIC_CSV_HEADERS.items():
+        (run_dir / filename).write_text(header + "\n", encoding="utf-8")
+    return run_dir
+
+
+def test_synthetic_package_round_trips_public_validation(tmp_path) -> None:
+    run_dir = _synthetic_run_dir(tmp_path)
+    snapshot_hash = "a" * 64
+    manifests = {
+        "feature": {
+            "source": "alpaca",
+            "stream": "feature_stream",
+            "params": {"adjustment": "split", "feed": "sip"},
+            "response_hash": "d" * 64,
+            "retrieved_at": "2026-01-01T00:00:00+00:00",
+        }
+    }
+    journal = tmp_path / "attempts.jsonl"
+    _write_procedural_journal(journal, snapshot_hash)
+    output = tmp_path / "evidence"
+    result = _build_evidence_package(
+        output,
+        run_dir=run_dir,
+        run_id="run-1",
+        data_manifest_hash=snapshot_hash,
+        code_commit="working-tree",
+        manifests=manifests,
+        journal=journal,
+        source_mode="synthetic",
+    )
+    assert result["data_manifest_hash"] == snapshot_hash
+    validate_public_evidence(output, mode="public", pending=True)
+    with pytest.raises(PublicEvidenceError, match="live source snapshot"):
+        validate_public_evidence(output, mode="private", pending=True)
+
+
+def test_private_mode_fails_closed_on_missing_root(tmp_path) -> None:
+    missing = tmp_path / "missing"
+    with pytest.raises(PublicEvidenceError, match="does not exist"):
+        validate_public_evidence(missing, mode="private")
+    validate_public_evidence(missing, mode="public")

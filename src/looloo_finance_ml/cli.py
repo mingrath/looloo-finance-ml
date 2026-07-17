@@ -77,8 +77,11 @@ def _parser() -> argparse.ArgumentParser:
     all_commands.add_argument("--start", default="2018-01-01")
     all_commands.add_argument("--end", default="2025-12-31")
     export = sub.add_parser("evidence-export")
-    export.add_argument("--output", default="evidence")
+    export.add_argument("--output", default="artifacts/private-evidence")
     export.add_argument("--attempt-journal")
+    export_public = sub.add_parser("evidence-export-public")
+    export_public.add_argument("--output", default="evidence")
+    export_public.add_argument("--attempt-journal")
     sub.add_parser("evidence-selfcheck")
     sub.add_parser("train")
     sub.add_parser("evaluate")
@@ -200,11 +203,13 @@ def _build_evidence_package(
     code_commit: str,
     manifests: dict[str, dict[str, Any]],
     journal: Path,
+    source_mode: str,
 ) -> dict[str, object]:
     from .evidence import (
         ALLOWLIST_VERSION,
         EVIDENCE_SCHEMA_VERSION,
         HASHED_PUBLIC_FILES,
+        mode_for_source_mode,
         validate_public_evidence,
     )
 
@@ -224,7 +229,7 @@ def _build_evidence_package(
     provenance = {
         "evidence_schema_version": EVIDENCE_SCHEMA_VERSION,
         "allowlist_version": ALLOWLIST_VERSION,
-        "source_mode": "live",
+        "source_mode": source_mode,
         "run_id": run_id,
         "data_manifest_hash": data_manifest_hash,
         "code_commit": code_commit,
@@ -270,14 +275,14 @@ def _build_evidence_package(
             "snapshot_manifest_hash": data_manifest_hash,
         },
     )
-    validate_public_evidence(destination_root, pending=True)
+    validate_public_evidence(destination_root, mode=mode_for_source_mode(source_mode), pending=True)
     return {"evidence_directory": str(package), "data_manifest_hash": data_manifest_hash}
 
 
 def _export_evidence(args: argparse.Namespace, root: Path) -> dict[str, object]:
     data_summary = read_json(root / "data_build_summary.json")
     if data_summary["source_mode"] != "live":
-        raise RuntimeError("public evidence export requires a live source snapshot")
+        raise RuntimeError("private evidence export requires a live source snapshot")
     active = _read_hashed_json(root / "active_run.json")
     model_manifest = _read_hashed_json(Path(str(active["model_manifest"])))
     data_manifest_hash, _, manifests = _data_provenance(root)
@@ -296,23 +301,28 @@ def _export_evidence(args: argparse.Namespace, root: Path) -> dict[str, object]:
         code_commit=str(model_manifest["code_commit"]),
         manifests=manifests,
         journal=journal,
+        source_mode="live",
     )
 
 
-def _selfcheck_evidence(args: argparse.Namespace, root: Path) -> dict[str, object]:
-    """Exercise the packaging path against any completed run, then discard the output."""
-    del args
-    active = _read_hashed_json(root / "active_run.json")
-    model_manifest = _read_hashed_json(Path(str(active["model_manifest"])))
-    data_manifest_hash, _, manifests = _data_provenance(root)
-    scratch = Path(tempfile.mkdtemp())
-    journal = scratch / "attempts.jsonl"
-    journal.write_text(
+def _write_procedural_journal(path: Path, data_manifest_hash: str) -> None:
+    """Record one accepted procedural attempt for a synthetic run with no live acquisition journal.
+
+    A synthetic ``data-build`` performs no vendor acquisition, so there is no live
+    attempt journal. This writes a single ``contract_valid`` accepted record —
+    procedural, timestamped when the record is written (export time), not the
+    original build — for the synthetic package's ``attempt_summary``;
+    ``source_mode == "synthetic"`` marks the package as a fixture, so the record is
+    never presented as a real acquisition.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
         json.dumps(
             {
-                "attempt_id": "selfcheck",
-                "started_at": "1970-01-01T00:00:00+00:00",
-                "finished_at": "1970-01-01T00:00:01+00:00",
+                "attempt_id": "procedural",
+                "started_at": now,
+                "finished_at": now,
                 "outcome": "accepted",
                 "reason": "contract_valid",
                 "data_manifest_hash": data_manifest_hash,
@@ -321,6 +331,44 @@ def _selfcheck_evidence(args: argparse.Namespace, root: Path) -> dict[str, objec
         + "\n",
         encoding="utf-8",
     )
+
+
+def _export_public_evidence(args: argparse.Namespace, root: Path) -> dict[str, object]:
+    data_summary = read_json(root / "data_build_summary.json")
+    if data_summary["source_mode"] != "synthetic":
+        raise RuntimeError("public evidence export requires a synthetic source snapshot")
+    active = _read_hashed_json(root / "active_run.json")
+    model_manifest = _read_hashed_json(Path(str(active["model_manifest"])))
+    data_manifest_hash, _, manifests = _data_provenance(root)
+    scratch = Path(tempfile.mkdtemp())
+    journal = Path(args.attempt_journal) if args.attempt_journal else scratch / "attempts.jsonl"
+    if not args.attempt_journal:
+        _write_procedural_journal(journal, data_manifest_hash)
+    try:
+        return _build_evidence_package(
+            Path(args.output),
+            run_dir=Path(str(active["run_directory"])),
+            run_id=active["run_id"],
+            data_manifest_hash=data_manifest_hash,
+            code_commit=str(model_manifest["code_commit"]),
+            manifests=manifests,
+            journal=journal,
+            source_mode="synthetic",
+        )
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _selfcheck_evidence(args: argparse.Namespace, root: Path) -> dict[str, object]:
+    """Exercise the packaging path against any completed run, then discard the output."""
+    del args
+    source_mode = str(read_json(root / "data_build_summary.json")["source_mode"])
+    active = _read_hashed_json(root / "active_run.json")
+    model_manifest = _read_hashed_json(Path(str(active["model_manifest"])))
+    data_manifest_hash, _, manifests = _data_provenance(root)
+    scratch = Path(tempfile.mkdtemp())
+    journal = scratch / "attempts.jsonl"
+    _write_procedural_journal(journal, data_manifest_hash)
     try:
         _build_evidence_package(
             scratch / "evidence",
@@ -330,6 +378,7 @@ def _selfcheck_evidence(args: argparse.Namespace, root: Path) -> dict[str, objec
             code_commit=str(model_manifest["code_commit"]),
             manifests=manifests,
             journal=journal,
+            source_mode=source_mode,
         )
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
@@ -2300,6 +2349,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "report": report,
         "evidence-selfcheck": _selfcheck_evidence,
         "evidence-export": _export_evidence,
+        "evidence-export-public": _export_public_evidence,
         "webull-compare": webull_compare,
     }
     if args.command == "all":
