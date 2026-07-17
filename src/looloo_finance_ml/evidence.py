@@ -14,6 +14,9 @@ from .hashing import sha256_file
 
 EVIDENCE_SCHEMA_VERSION = "public-evidence-v1"
 ALLOWLIST_VERSION = "public-evidence-v1"
+PUBLIC_SOURCE_MODE = "synthetic"
+PRIVATE_SOURCE_MODE = "live"
+_MODE_SOURCE_MODES = {"public": PUBLIC_SOURCE_MODE, "private": PRIVATE_SOURCE_MODE}
 PUBLIC_FILES = (
     "evidence_report.md",
     "public_provenance.json",
@@ -143,10 +146,29 @@ def _validate_attestation(
         raise PublicEvidenceError("review attestation terms URL must be HTTPS")
 
 
-def validate_public_evidence(root: str | Path, *, pending: bool = False) -> None:
-    """Reject every public evidence shape except the committed canonical package."""
+def mode_for_source_mode(source_mode: str) -> str:
+    """Map a package's ``source_mode`` to the validation mode that must accept it."""
+    for mode, required in _MODE_SOURCE_MODES.items():
+        if required == source_mode:
+            return mode
+    raise PublicEvidenceError(f"unsupported source mode: {source_mode!r}")
+
+
+def validate_public_evidence(root: str | Path, *, mode: str = "public", pending: bool = False) -> None:
+    """Reject every public evidence shape except the committed canonical package.
+
+    ``mode`` fixes the required snapshot provenance: ``"public"`` (the committed
+    artifact) requires ``source_mode == "synthetic"`` so no real aggregate can pass
+    as the public package; ``"private"`` (the reviewer's local reproduction, never
+    committed) requires ``source_mode == "live"``.
+    """
+    required_source_mode = _MODE_SOURCE_MODES.get(mode)
+    if required_source_mode is None:
+        raise PublicEvidenceError(f"unknown validation mode: {mode!r}")
     root = Path(root)
     if not root.exists():
+        if mode == "private":
+            raise PublicEvidenceError("private evidence root does not exist")
         return
     if not root.is_dir():
         raise PublicEvidenceError("evidence root must be a directory")
@@ -202,8 +224,10 @@ def validate_public_evidence(root: str | Path, *, pending: bool = False) -> None
         raise PublicEvidenceError("public provenance schema version mismatch")
     if provenance["allowlist_version"] != ALLOWLIST_VERSION:
         raise PublicEvidenceError("public provenance allowlist version mismatch")
-    if provenance["source_mode"] != "live":
-        raise PublicEvidenceError("public evidence must originate from a live source snapshot")
+    if provenance["source_mode"] != required_source_mode:
+        raise PublicEvidenceError(
+            f"{mode} evidence must originate from a {required_source_mode} source snapshot"
+        )
     snapshot_hash = _require_text(provenance["data_manifest_hash"], name="data manifest hash")
     if not snapshot_hash.startswith(package.name):
         raise PublicEvidenceError("package directory does not match data manifest hash")
@@ -297,9 +321,10 @@ def validate_git_history(root: str | Path, revision: str) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m looloo_finance_ml.evidence")
     parser.add_argument("root", nargs="?", default="evidence")
+    parser.add_argument("--mode", choices=("public", "private"), default="public")
     parser.add_argument("--git-baseline")
     args = parser.parse_args(argv)
-    validate_public_evidence(args.root)
+    validate_public_evidence(args.root, mode=args.mode)
     if args.git_baseline:
         validate_git_history(args.root, args.git_baseline)
     return 0
